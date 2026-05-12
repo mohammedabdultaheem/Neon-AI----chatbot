@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import ChatInterface from './components/ChatInterface'
 import LoginPage from './components/LoginPage'
+import Dashboard from './components/Dashboard'
 import ParticleBackground from './components/ParticleBackground'
 
 function App() {
@@ -19,7 +20,17 @@ function App() {
               !isLoggedIn ? (
                 <LoginPage onLogin={() => setIsLoggedIn(true)} />
               ) : (
-                <Navigate to="/chat" replace />
+                <Navigate to="/dashboard" replace />
+              )
+            } 
+          />
+          <Route 
+            path="/dashboard" 
+            element={
+              isLoggedIn ? (
+                <Dashboard />
+              ) : (
+                <Navigate to="/login" replace />
               )
             } 
           />
@@ -33,7 +44,7 @@ function App() {
               )
             } 
           />
-          <Route path="*" element={<Navigate to={isLoggedIn ? "/chat" : "/login"} replace />} />
+          <Route path="*" element={<Navigate to={isLoggedIn ? "/dashboard" : "/login"} replace />} />
         </Routes>
       </div>
     </Router>

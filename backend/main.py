@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import base64
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -61,10 +62,42 @@ async def websocket_endpoint(websocket: WebSocket):
             data = await websocket.receive_text()
             message_data = json.loads(data)
             user_input = message_data.get("text", "")
+            file_data = message_data.get("file_data")
+            file_type = message_data.get("file_type")
             
+            # Prepare message parts (File FIRST, then Text for better analysis)
+            parts = []
+            
+            if file_data and file_type:
+                try:
+                    # Remove base64 prefix if present
+                    if "," in file_data:
+                        file_data = file_data.split(",")[1]
+                    
+                    file_bytes = base64.b64decode(file_data)
+                    parts.append({
+                        "mime_type": file_type,
+                        "data": file_bytes
+                    })
+                    print(f"Attached file of type: {file_type}")
+                except Exception as e:
+                    print(f"Error processing file: {e}")
+
+            if user_input:
+                parts.append(user_input)
+            elif file_data:
+                parts.append("Please analyze this attached file.")
+            
+            if not parts:
+                continue
+
             # Use Gemini to generate a streaming response
             try:
-                response = chat.send_message(user_input, stream=True)
+                # If no text or file, skip
+                if not parts:
+                    continue
+                    
+                response = chat.send_message(parts, stream=True)
                 
                 for chunk in response:
                     if chunk.text:

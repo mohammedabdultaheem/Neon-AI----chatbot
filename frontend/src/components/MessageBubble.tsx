@@ -1,13 +1,15 @@
 import { type FC } from 'react';
 import { motion } from 'framer-motion';
-import { User, Bot } from 'lucide-react';
+import { User, Bot, FileText } from 'lucide-react';
 
 interface MessageBubbleProps {
   role: 'user' | 'bot';
   content: string;
+  fileData?: string;
+  fileType?: string;
 }
 
-const MessageBubble: FC<MessageBubbleProps> = ({ role, content }) => {
+const MessageBubble: FC<MessageBubbleProps> = ({ role, content, fileData, fileType }) => {
   const isUser = role === 'user';
 
   return (
@@ -33,7 +35,31 @@ const MessageBubble: FC<MessageBubbleProps> = ({ role, content }) => {
             borderWidth: '1px',
           }}
         >
-          <p className="text-sm leading-relaxed whitespace-pre-wrap">{content}</p>
+          <div className="space-y-3">
+            {fileData && (
+              <div className="mb-2 max-w-sm overflow-hidden rounded-xl border border-white/10 shadow-lg">
+                {fileType?.startsWith('image/') ? (
+                  <img 
+                    src={fileData} 
+                    alt="Uploaded content" 
+                    className="w-full h-auto block hover:scale-105 transition-transform duration-500"
+                  />
+                ) : (
+                  <div className="p-4 bg-white/5 flex items-center gap-3">
+                    <div className="p-2 bg-neonBlue/20 rounded-lg">
+                      <FileText className="text-neonBlue w-6 h-6" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-white/90 truncate">Document Attached</p>
+                      <p className="text-[10px] text-white/40 uppercase tracking-tighter">{fileType}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {content && <p className="text-sm leading-relaxed whitespace-pre-wrap">{content}</p>}
+          </div>
           
           {/* Subtle neon gradient accent on the corner */}
           <div className={`absolute top-0 ${isUser ? 'right-0' : 'left-0'} w-2 h-2 rounded-full blur-[2px] ${isUser ? 'bg-neonBlue' : 'bg-neonPurple'}`} />
