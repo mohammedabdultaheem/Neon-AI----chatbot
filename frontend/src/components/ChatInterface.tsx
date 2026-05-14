@@ -3,8 +3,8 @@ import MessageBubble from './MessageBubble';
 import InputArea from './InputArea';
 import TypingIndicator from './TypingIndicator';
 import ChatSidebar from './ChatSidebar';
-import { AnimatePresence } from 'framer-motion';
-import { LogIn } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { LogIn, PanelLeft } from 'lucide-react';
 
 interface Message {
   role: 'user' | 'bot';
@@ -31,6 +31,8 @@ const ChatInterface: FC<ChatInterfaceProps> = ({ onLogout }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
   const scrollRef = useRef<HTMLDivElement>(null);
   const socketRef = useRef<WebSocket | null>(null);
 
@@ -99,54 +101,71 @@ const ChatInterface: FC<ChatInterfaceProps> = ({ onLogout }) => {
 
   useEffect(() => {
     // Initialize WebSocket - use env var if available, otherwise fallback to localhost
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const backendHost = import.meta.env.VITE_BACKEND_URL || 'localhost:8000';
-    const wsUrl = backendHost.includes('://') 
-      ? backendHost.replace(/^http/, 'ws') + '/chat'
-      : `${protocol}//${backendHost}/chat`;
+    const getWsUrl = () => {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL;
+      
+      // If VITE_BACKEND_URL is explicitly set
+      if (backendUrl) {
+        // Remove http/https prefix if user added it
+        const host = backendUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+        return `wss://${host}/chat`;
+      }
+      
+      // Fallback for local development
+      return `ws://localhost:8000/chat`;
+    };
+
+    const wsUrl = getWsUrl();
+    console.log("Connecting to WebSocket:", wsUrl);
     
     const connect = () => {
+      setConnectionStatus('connecting');
       const socket = new WebSocket(wsUrl);
       socketRef.current = socket;
 
       socket.onopen = () => {
         console.log("Connected to backend");
+        setConnectionStatus('connected');
       };
 
       socket.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        
-        if (data.type === 'content') {
-          setIsTyping(false);
-          setMessages(prev => {
-            const lastMessage = prev[prev.length - 1];
-            if (lastMessage && lastMessage.role === 'bot' && !data.is_new) {
-              // Append to last bot message if it's not a new one
-              // (This is a simplified logic for streaming)
-              const updatedMessages = [...prev];
-              updatedMessages[updatedMessages.length - 1] = {
-                ...lastMessage,
-                content: lastMessage.content + data.content
-              };
-              return updatedMessages;
-            } else {
-              return [...prev, { role: 'bot', content: data.content, id: Date.now().toString() }];
-            }
-          });
+        try {
+          const data = JSON.parse(event.data);
           
-          if (data.is_final) {
-            setIsLoading(false);
+          if (data.type === 'content') {
+            setIsTyping(false);
+            setMessages(prev => {
+              const lastMessage = prev[prev.length - 1];
+              if (lastMessage && lastMessage.role === 'bot' && !data.is_new) {
+                const updatedMessages = [...prev];
+                updatedMessages[updatedMessages.length - 1] = {
+                  ...lastMessage,
+                  content: lastMessage.content + data.content
+                };
+                return updatedMessages;
+              } else {
+                return [...prev, { role: 'bot', content: data.content, id: Date.now().toString() }];
+              }
+            });
+            
+            if (data.is_final) {
+              setIsLoading(false);
+            }
           }
+        } catch (err) {
+          console.error("Error parsing message:", err);
         }
       };
 
       socket.onclose = () => {
         console.log("Disconnected from backend, retrying in 3s...");
+        setConnectionStatus('error');
         setTimeout(connect, 3000);
       };
 
       socket.onerror = (err) => {
         console.error("WebSocket error:", err);
+        setConnectionStatus('error');
       };
     };
 
@@ -215,18 +234,54 @@ const ChatInterface: FC<ChatInterfaceProps> = ({ onLogout }) => {
   return (
     <div className="relative h-screen w-full flex overflow-hidden">
       {/* Left Sidebar */}
-      <ChatSidebar 
-        sessions={sessions} 
-        activeSessionId={activeSessionId} 
-        onNewChat={handleNewChat} 
-        onSelectSession={handleSelectSession}
-      />
+      <AnimatePresence mode="wait">
+        {isSidebarOpen && (
+          <motion.div
+            initial={{ width: 0, opacity: 0, x: -320 }}
+            animate={{ width: 320, opacity: 1, x: 0 }}
+            exit={{ width: 0, opacity: 0, x: -320 }}
+            transition={{ duration: 0.3, ease: 'easeInOut' }}
+            className="h-full shrink-0"
+          >
+            <ChatSidebar 
+              sessions={sessions} 
+              activeSessionId={activeSessionId} 
+              onNewChat={handleNewChat} 
+              onSelectSession={handleSelectSession}
+              onToggle={() => setIsSidebarOpen(false)}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col relative min-w-0 bg-black/40">
         {/* Header */}
         <div className="h-20 glass border-b border-white/10 flex items-center justify-between px-8 z-10 shrink-0">
-          <h1 className="text-xl font-bold bg-neon-gradient bg-clip-text text-transparent">NEON AI</h1>
+          <div className="flex items-center gap-4">
+            {!isSidebarOpen && (
+              <button
+                onClick={() => setIsSidebarOpen(true)}
+                className="p-2 rounded-lg hover:bg-white/5 text-white/50 hover:text-neonBlue transition-all duration-300"
+                title="Show Sidebar"
+              >
+                <PanelLeft size={20} />
+              </button>
+            )}
+            <h1 className="text-xl font-bold bg-neon-gradient bg-clip-text text-transparent">NEON AI</h1>
+            <div className="flex items-center gap-2 ml-4 px-3 py-1 rounded-full bg-white/5 border border-white/10">
+              <div className={`w-2 h-2 rounded-full animate-pulse ${
+                connectionStatus === 'connected' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 
+                connectionStatus === 'connecting' ? 'bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.6)]' : 
+                'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]'
+              }`} />
+              <span className="text-[10px] uppercase tracking-tighter text-white/40 font-medium">
+                {connectionStatus === 'connected' ? 'Neural Link Active' : 
+                 connectionStatus === 'connecting' ? 'Establishing Link...' : 
+                 'Link Interrupted'}
+              </span>
+            </div>
+          </div>
           <button 
             onClick={onLogout}
             className="flex items-center gap-2 text-white/50 hover:text-neonRed transition-colors group"

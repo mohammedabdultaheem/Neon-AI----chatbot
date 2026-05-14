@@ -1,5 +1,5 @@
 import { type FC } from 'react';
-import { Plus, MessageSquare, History, Clock } from 'lucide-react';
+import { Plus, MessageSquare, History, Clock, PanelLeftClose } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface ChatSidebarProps {
@@ -7,9 +7,10 @@ interface ChatSidebarProps {
   activeSessionId: string | null;
   onNewChat: () => void;
   onSelectSession: (id: string) => void;
+  onToggle: () => void;
 }
 
-const ChatSidebar: FC<ChatSidebarProps> = ({ sessions, activeSessionId, onNewChat, onSelectSession }) => {
+const ChatSidebar: FC<ChatSidebarProps> = ({ sessions, activeSessionId, onNewChat, onSelectSession, onToggle }) => {
   // Helper to format time relative to now
   const formatTime = (timestamp: number) => {
     const diff = Date.now() - timestamp;
@@ -22,13 +23,20 @@ const ChatSidebar: FC<ChatSidebarProps> = ({ sessions, activeSessionId, onNewCha
   return (
     <div className="w-80 h-full glass border-r border-white/10 flex flex-col z-20 overflow-hidden">
       {/* Sidebar Header */}
-      <div className="p-6">
+      <div className="p-6 flex gap-2">
         <button
           onClick={onNewChat}
-          className="w-full h-12 rounded-xl bg-neonBlue/10 border border-neonBlue/50 text-neonBlue flex items-center justify-center gap-2 font-bold shadow-neon-blue hover:bg-neonBlue/20 transition-all duration-300"
+          className="flex-1 h-12 rounded-xl bg-neonBlue/10 border border-neonBlue/50 text-neonBlue flex items-center justify-center gap-2 font-bold shadow-neon-blue hover:bg-neonBlue/20 transition-all duration-300"
         >
           <Plus size={20} />
           <span>New Session</span>
+        </button>
+        <button
+          onClick={onToggle}
+          className="w-12 h-12 rounded-xl glass border border-white/10 text-white/50 flex items-center justify-center hover:text-neonBlue hover:border-neonBlue/50 transition-all duration-300"
+          title="Hide Sidebar"
+        >
+          <PanelLeftClose size={20} />
         </button>
       </div>
 
